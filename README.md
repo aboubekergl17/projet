@@ -1,30 +1,37 @@
-# projet
-projet système d'exploitation
+Réponses aux questions :
 
-On veut effectuer en parallèle(En utilisant le modèle producteurs/consommateur) le produit de deux matrices: 
-B (n1* m1)  et C (n2 * m2) ⇒ la matrice résultante A=B*C ;
+Q1: Quelles sont les structures de données à utiliser ?
 
-Les matrices sont remplis par des valeurs aléatoires
+1\ Matrices B, C et A : Ces matrices doivent être des tableaux bidimensionnels, comme déclaré dans le code ('int B[N][N]',' int C[N][N]', 'int A[N][N]').
 
-Les résultats intermédiaires seront placés dans un tampon de taille “T[N]”.
+2\ Matrice Tampon T : La matrice tampon T doit également être un tableau bidimensionnel, comme déclaré dans le code ('int T[N][N];'). C'est dans cette matrice que les résultats intermédiaires seront stockés.
 
-Chaque threads producteurs calcule une ligne de la matrice résultante A et range les résultat dans le tampon T
+Q2: Comment allez-vous protéger l'accès à ces données?
 
-Les threads consommateurs consomment l'élément T[y]  le place dans la matrice résultante A  au bon emplacement!
+1\ Sémaphores et Mutex : Dans le code, les sémaphores ('empty' et 'full') et le mutex sont utilisés pour synchroniser l'accès aux données partagées.
 
-q1: Quelles sont les structures de données à utiliser ?
+a\ 'sem_wait(&empty)' : est utilisé pour garantir qu'il y a de la place dans le tampon avant d'écrire.
 
-q2: Comment allez-vous protéger l'accès à ces données?
+b\ 'sem_post(&empty)' : est utilisé pour signaler qu'une place est libérée après l'écriture.
 
-q3- quels sont les risques?
+c\ 'sem_wait(&full)' : est utilisé pour attendre qu'il y ait des données à lire dans le tampon.
 
-1-Cloner le projet github : projet  ; et le modifier le selon les exigences ci-dessus
+d\ 'sem_post(&full)' : est utilisé pour signaler que des données ont été consommées du tampon.
 
-2- Pour chaque nouvelle idée créer une nouvelle branche; les autres étudiants peuvent améliorer l'idée en créant une nouvelle branche!
+e\ 'pthread_mutex_lock(&mutex)' : est utilisé avant d'écrire ou de lire dans le tampon, pour éviter les conflits d'accès concurrents.
 
-3-Les premières réponses sont mieux notées!
+f\ 'pthread_mutex_unlock(&mutex)' : est utilisé pour libérer le mutex après l'écriture ou la lecture.
 
-4-Bien gérer les éxceptions 
+Q3: Quels sont les risques?
 
-5-Bien gérer les messages d'erreurs!
+1\ Condition de concurrence : Il y a un risque de condition de concurrence si l'accès aux données partagées n'est pas correctement synchronisé. Cela pourrait conduire à des résultats incorrects dans la matrice résultante A.
+
+2\ Blocage : Il y a un risque de blocage si la synchronisation n'est pas correctement gérée. Par exemple, si un producteur attend indéfiniment une place libre dans le tampon qui ne vient jamais, ou si un consommateur attend indéfiniment des données dans un tampon vide.
+
+3\ Erreur de segmentation : Il peut y avoir des erreurs de segmentation si les indices d'accès aux tableaux ne sont pas correctement gérés, dépassant les limites des tableaux.
+
+4\ Performances : La parallélisation peut ne pas apporter de bénéfices significatifs si la taille des matrices est petite. Il est important de mesurer les performances et de déterminer si la parallélisation est justifiée pour la taille des données en question.
+
+5\ Gestion des erreurs : Le code ne gère pas actuellement les erreurs qui pourraient survenir pendant l'exécution (par exemple, l'échec de la création d'un thread). Une gestion des erreurs robuste devrait être ajoutée pour assurer une exécution fiable du programme.
+
 
