@@ -1,70 +1,153 @@
-//section include..
+#include <pthread.h>
+#include <semaphore.h>
+#include <stdlib.h>
+#include <stdio.h>
 
+#define MAX_THREADS 10
+#define MATRIX_SIZE 10
 
+int rows1, cols1, rows2, cols2;
+int buffer[MATRIX_SIZE];
+int count = 0;
 
-//define
-#define N ... // places dans le buffer
+pthread_mutex_t mtx;
+sem_t semFull, semEmpty;
 
-//variable globales 
-//les matrices
-B,C,A
-//le tampon
-T
+int matrixB[MATRIX_SIZE][MATRIX_SIZE];
+int matrixA[MATRIX_SIZE][MATRIX_SIZE];
+int matrixC[MATRIX_SIZE][MATRIX_SIZE];
 
-//pour la synchronisation 
-pthread_mutex_t mutex;
-sem_t empty;
-sem_t full;
-
-// Producteur
-void producer(void)
+void *matrixMultiplier(void *args)
 {
-  int item;
-//pour chaque ligne 
-//for....
-  {
-    item=produce(item);
-    sem_wait(&empty); // attente d'une place libre
-    pthread_mutex_lock(&mutex);
-     // section critique
-     insert_item();
-    pthread_mutex_unlock(&mutex);
-    sem_post(&full); // il y a une place remplie en plus
-  }
+    int rowOrCol = *(int *)args;
+    int result;
+
+    for (int i = 0; i < (rowOrCol == 1 ? cols2 : rows1); i++)
+    {
+        result = 0;
+        for (int j = 0; j < (rowOrCol == 1 ? rows2 : cols1); j++)
+        {
+            if (rowOrCol == 1)
+                result += matrixB[rowOrCol][j] * matrixA[j][i];
+            else
+                result += matrixB[j][rowOrCol] * matrixA[i][j];
+        }
+
+        sem_wait(&semEmpty);
+        pthread_mutex_lock(&mtx);
+        buffer[count] = result;
+        count++;
+        pthread_mutex_unlock(&mtx);
+        sem_post(&semFull);
+    }
+
+    free(args);
+    pthread_exit(NULL);
 }
 
-void consumer(void)
+void *resultCollector(void *args)
 {
- int item;
- while(true)
- {
-   sem_wait(&full); // attente d'une place remplie
-   pthread_mutex_lock(&mutex);
-    // section critique
-    item=remove(item);
-   pthread_mutex_unlock(&mutex);
-   sem_post(&empty); // il y a une place libre en plus
- }
+    int row = *(int *)args;
+    int result;
+
+    for (int col = 0; col < cols2; col++)
+    {
+        sem_wait(&semFull);
+        pthread_mutex_lock(&mtx);
+        count--;
+        result = buffer[count];
+        pthread_mutex_unlock(&mtx);
+        sem_post(&semEmpty);
+
+        matrixC[row][col] = result;
+    }
+
+    free(args);
+    pthread_exit(NULL);
 }
 
-int Main ()
+int main()
 {
-// Initialisation
-sem_init(&mutex,0,1);//exclusion mutuelle 
-sem_init(&empty, 0 , N);  // buffer vide
-sem_init(&full, 0 , 0);   // buffer vide
-//creation des threads
+    rows1 = cols1 = rows2 = cols2 = 4;
 
+    for (int i = 0; i < rows1; i++)
+    {
+        for (int j = 0; j < cols1; j++)
+        {
+            matrixB[i][j] = rand() % 100;
+        }
+    }
 
+    for (int i = 0; i < rows2; i++)
+    {
+        for (int j = 0; j < cols2; j++)
+        {
+            matrixA[i][j] = rand() % 100;
+        }
+    }
 
-//attente des threads
+    pthread_t producers[MAX_THREADS], consumers[MAX_THREADS];
+    pthread_mutex_init(&mtx, NULL);
+    sem_init(&semFull, 0, 0);
+    sem_init(&semEmpty, 0, MATRIX_SIZE);
 
+    printf("Matrix B:\n");
+    for (int i = 0; i < rows1; i++)
+    {
+        for (int j = 0; j < cols2; j++)
+        {
+            printf("%d ", matrixA[i][j]);
+        }
+        printf("\n");
+    }
 
+    printf("Matrix C:\n");
+    for (int i = 0; i < rows1; i++)
+    {
+        for (int j = 0; j < cols2; j++)
+        {
+            printf("%d ", matrixB[i][j]);
+        }
+        printf("\n");
+    }
 
+    for (int i = 0; i < rows1; i++)
+    {
+        int *a = malloc(sizeof(int));
+        *a = i;
+        pthread_create(&producers[i], NULL, matrixMultiplier, (void *)a);
+    }
 
-//destruction...
+    for (int i = 0; i < cols2; i++)
+    {
+        int *a = malloc(sizeof(int));
+        *a = i;
+        pthread_create(&consumers[i], NULL, resultCollector, (void *)a);
+    }
 
+    for (int i = 0; i < rows1; i++)
+    {
+        pthread_join(producers[i], NULL);
+    }
 
+    for (int i = 0; i < cols2; i++)
+    {
+        pthread_join(consumers[i], NULL);
+    }
 
-return 0;
+    printf("Matrix A:\n");
+    for (int i = 0; i < rows1; i++)
+    {
+        for (int j = 0; j < cols2; j++)
+        {
+            printf("%d ", matrixC[i][j]);
+        }
+        printf("\n");
+    }
+
+    pthread_mutex_destroy(&mtx);
+    sem_destroy(&semFull);
+    sem_destroy(&semEmpty);
+
+    return 0;
 }
